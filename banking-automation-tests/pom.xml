@@ -22,7 +22,7 @@
 
     <playwright.version>1.44.0</playwright.version>
     <junit.version>5.10.2</junit.version>
-    <assertj.version>3.25.3</assertj.version>
+    <assertj.version>3.27.7</assertj.version>
     <slf4j.version>2.0.13</slf4j.version>
     <logback.version>1.5.6</logback.version>
     <surefire.version>3.2.5</surefire.version>
