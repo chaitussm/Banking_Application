@@ -1,0 +1,26 @@
+# Compiled output
+target/
+*.class
+
+# Maven wrapper
+.mvn/
+
+# IDE files
+.idea/
+*.iml
+.eclipse/
+.settings/
+.project
+.classpath
+*.code-workspace
+
+# Playwright artifacts
+test-results/
+playwright-report/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
