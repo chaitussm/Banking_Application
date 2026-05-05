@@ -40,6 +40,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Dev secret presence diagnostics
+        env:
+          DEV_SSH_HOST: ${{ secrets.DEV_SSH_HOST }}
+          DEV_SSH_USER: ${{ secrets.DEV_SSH_USER }}
+          DEV_SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
+          DEV_APP_DIR: ${{ secrets.DEV_APP_DIR }}
+        run: |
+          for v in DEV_SSH_HOST DEV_SSH_USER DEV_SSH_KEY DEV_APP_DIR; do
+            if [ -n "${!v}" ]; then
+              echo "present: $v"
+            else
+              echo "missing: $v"
+            fi
+          done
+
       - name: Validate dev deployment secrets
         env:
           DEV_SSH_HOST: ${{ secrets.DEV_SSH_HOST }}
@@ -130,6 +145,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Staging secret presence diagnostics
+        env:
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_APP_DIR: ${{ secrets.STAGING_APP_DIR }}
+        run: |
+          for v in STAGING_SSH_HOST STAGING_SSH_USER STAGING_SSH_KEY STAGING_APP_DIR; do
+            if [ -n "${!v}" ]; then
+              echo "present: $v"
+            else
+              echo "missing: $v"
+            fi
+          done
+
       - name: Validate staging deployment secrets
         env:
           STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
@@ -218,6 +248,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Production secret presence diagnostics
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_APP_DIR: ${{ secrets.PROD_APP_DIR }}
+        run: |
+          for v in PROD_SSH_HOST PROD_SSH_USER PROD_SSH_KEY PROD_APP_DIR; do
+            if [ -n "${!v}" ]; then
+              echo "present: $v"
+            else
+              echo "missing: $v"
+            fi
+          done
 
       - name: Validate production deployment secrets
         env:
