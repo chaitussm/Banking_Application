@@ -1,0 +1,242 @@
+name: Deploy Pipeline
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_run:
+    workflows: ["Dev Pipeline"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment target"
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      approve_production:
+        description: "Type yes to allow production deployment"
+        required: false
+        default: "no"
+
+run-name: "Deploy Pipeline - ${{ github.event_name }}"
+
+jobs:
+  deploy-dev:
+    name: Deploy To Dev
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') == false) ||
+      (github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'master') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'dev')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEV_SSH_KEY }}
+
+      - name: Add dev host to known_hosts
+        env:
+          DEV_SSH_HOST: ${{ secrets.DEV_SSH_HOST }}
+          DEV_SSH_PORT: ${{ secrets.DEV_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${DEV_SSH_PORT:-22}" -H "$DEV_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Deploy to dev
+        env:
+          DEV_SSH_HOST: ${{ secrets.DEV_SSH_HOST }}
+          DEV_SSH_USER: ${{ secrets.DEV_SSH_USER }}
+          DEV_SSH_PORT: ${{ secrets.DEV_SSH_PORT }}
+          DEV_APP_DIR: ${{ secrets.DEV_APP_DIR }}
+          DEV_RESTART_CMD: ${{ secrets.DEV_RESTART_CMD }}
+        run: |
+          rsync -az --delete -e "ssh -p ${DEV_SSH_PORT:-22}" ./ "$DEV_SSH_USER@$DEV_SSH_HOST:${DEV_APP_DIR}/"
+          ssh -p "${DEV_SSH_PORT:-22}" "$DEV_SSH_USER@$DEV_SSH_HOST" "
+            set -e
+            cd '${DEV_APP_DIR}'
+            cd backend && npm ci
+            cd ../frontend && npm ci && npm run build
+            if [ -n '${DEV_RESTART_CMD}' ]; then
+              eval '${DEV_RESTART_CMD}'
+            fi
+          "
+
+      - name: Upload dev deployment bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-deploy-bundle
+          path: |
+            frontend/dist
+            backend/src
+            backend/package.json
+
+  deploy-staging:
+    name: Deploy To Staging
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'staging') ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') == false) ||
+      (github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'master')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+      - name: Add staging host to known_hosts
+        env:
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${STAGING_SSH_PORT:-22}" -H "$STAGING_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Deploy to staging
+        env:
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+          STAGING_APP_DIR: ${{ secrets.STAGING_APP_DIR }}
+          STAGING_RESTART_CMD: ${{ secrets.STAGING_RESTART_CMD }}
+        run: |
+          rsync -az --delete -e "ssh -p ${STAGING_SSH_PORT:-22}" ./ "$STAGING_SSH_USER@$STAGING_SSH_HOST:${STAGING_APP_DIR}/"
+          ssh -p "${STAGING_SSH_PORT:-22}" "$STAGING_SSH_USER@$STAGING_SSH_HOST" "
+            set -e
+            cd '${STAGING_APP_DIR}'
+            cd backend && npm ci
+            cd ../frontend && npm ci && npm run build
+            if [ -n '${STAGING_RESTART_CMD}' ]; then
+              eval '${STAGING_RESTART_CMD}'
+            fi
+          "
+
+      - name: Upload staging deployment bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-deploy-bundle
+          path: |
+            frontend/dist
+            backend/src
+            backend/package.json
+
+  deploy-production:
+    name: Deploy To Production
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.target == 'production' &&
+      github.event.inputs.approve_production == 'yes')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PROD_SSH_KEY }}
+
+      - name: Add production host to known_hosts
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${PROD_SSH_PORT:-22}" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Deploy to production
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_APP_DIR: ${{ secrets.PROD_APP_DIR }}
+          PROD_RESTART_CMD: ${{ secrets.PROD_RESTART_CMD }}
+        run: |
+          rsync -az --delete -e "ssh -p ${PROD_SSH_PORT:-22}" ./ "$PROD_SSH_USER@$PROD_SSH_HOST:${PROD_APP_DIR}/"
+          ssh -p "${PROD_SSH_PORT:-22}" "$PROD_SSH_USER@$PROD_SSH_HOST" "
+            set -e
+            cd '${PROD_APP_DIR}'
+            cd backend && npm ci
+            cd ../frontend && npm ci && npm run build
+            if [ -n '${PROD_RESTART_CMD}' ]; then
+              eval '${PROD_RESTART_CMD}'
+            fi
+          "
+
+      - name: Upload production deployment bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-deploy-bundle
+          path: |
+            frontend/dist
+            backend/src
+            backend/package.json

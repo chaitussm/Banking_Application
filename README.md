@@ -91,3 +91,74 @@ Requirements: Add transfer endpoint to move funds between two accounts with full
 Non-goals: No frontend changes."
 
 Copilot will then apply changes only in the requested scope and provide a release-oriented summary.
+
+## CI/CD Pipelines
+
+This repository now includes two GitHub Actions workflows:
+
+- `.github/workflows/dev-pipeline.yml`
+	- Triggers on push to `master`
+	- Triggers on pull requests targeting `master`
+	- Runs daily at 10:00 PM IST (`30 16 * * *` UTC)
+	- Publishes artifacts:
+		- `backend-build`
+		- `frontend-build`
+
+- `.github/workflows/deploy-pipeline.yml`
+	- Triggers after successful `Dev Pipeline` runs on `master`
+	- Triggers on version tags matching `v*` for production release deployments
+	- Supports manual deployment with `workflow_dispatch` input:
+		- `dev`
+		- `staging`
+		- `production`
+	- Manual production gate input:
+		- `approve_production` must be `yes`
+	- Runs separate deployment jobs for:
+		- `dev`
+		- `staging`
+		- `production`
+	- Uses SSH + rsync for real server deployment
+
+### Deployment Secrets
+
+Set these repository secrets in GitHub before running deployment workflows:
+
+- Dev
+	- `DEV_SSH_HOST`
+	- `DEV_SSH_USER`
+	- `DEV_SSH_KEY`
+	- `DEV_SSH_PORT` (optional, default `22`)
+	- `DEV_APP_DIR` (absolute deployment directory on server)
+	- `DEV_RESTART_CMD` (optional command to restart services)
+
+- Staging
+	- `STAGING_SSH_HOST`
+	- `STAGING_SSH_USER`
+	- `STAGING_SSH_KEY`
+	- `STAGING_SSH_PORT` (optional, default `22`)
+	- `STAGING_APP_DIR`
+	- `STAGING_RESTART_CMD` (optional)
+
+- Production
+	- `PROD_SSH_HOST`
+	- `PROD_SSH_USER`
+	- `PROD_SSH_KEY`
+	- `PROD_SSH_PORT` (optional, default `22`)
+	- `PROD_APP_DIR`
+	- `PROD_RESTART_CMD` (optional)
+
+### Remote Server Requirements
+
+Each target server should have:
+
+- Node.js and npm installed
+- SSH access for the configured deploy user
+- Permission to write into the configured app directory
+- Any process manager required by your restart command (for example `pm2` or `systemctl`)
+
+### Branch Protection Recommendation
+
+In your GitHub branch protection rule for `master`, mark these checks as required:
+
+- `Backend Checks`
+- `Frontend Checks`
