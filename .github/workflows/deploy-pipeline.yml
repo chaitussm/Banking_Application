@@ -73,6 +73,17 @@ jobs:
             exit 1
           fi
 
+      - name: Validate dev SSH key format
+        env:
+          DEV_SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
+        run: |
+          if ! printf '%s' "$DEV_SSH_KEY" | ssh-keygen -y -f /dev/stdin > /dev/null 2>&1; then
+            echo "::error::DEV_SSH_KEY is not a valid SSH private key."
+            echo "Ensure the secret contains a properly formatted private key"
+            echo "(e.g. starting with '-----BEGIN OPENSSH PRIVATE KEY-----')."
+            exit 1
+          fi
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -150,11 +161,7 @@ jobs:
   deploy-staging:
     name: Deploy To Staging
     if: |
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'staging') ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') == false) ||
-      (github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'master')
+      github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'staging'
     runs-on: ubuntu-latest
 
     steps:
@@ -191,6 +198,17 @@ jobs:
           done
           if [ -n "$missing" ]; then
             echo "Missing required staging secrets:$missing"
+            exit 1
+          fi
+
+      - name: Validate staging SSH key format
+        env:
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        run: |
+          if ! printf '%s' "$STAGING_SSH_KEY" | ssh-keygen -y -f /dev/stdin > /dev/null 2>&1; then
+            echo "::error::STAGING_SSH_KEY is not a valid SSH private key."
+            echo "Ensure the secret contains a properly formatted private key"
+            echo "(e.g. starting with '-----BEGIN OPENSSH PRIVATE KEY-----')."
             exit 1
           fi
 
@@ -311,6 +329,17 @@ jobs:
           done
           if [ -n "$missing" ]; then
             echo "Missing required production secrets:$missing"
+            exit 1
+          fi
+
+      - name: Validate production SSH key format
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          if ! printf '%s' "$PROD_SSH_KEY" | ssh-keygen -y -f /dev/stdin > /dev/null 2>&1; then
+            echo "::error::PROD_SSH_KEY is not a valid SSH private key."
+            echo "Ensure the secret contains a properly formatted private key"
+            echo "(e.g. starting with '-----BEGIN OPENSSH PRIVATE KEY-----')."
             exit 1
           fi
 
