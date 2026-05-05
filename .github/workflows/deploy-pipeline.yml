@@ -40,6 +40,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate dev deployment secrets
+        env:
+          DEV_SSH_HOST: ${{ secrets.DEV_SSH_HOST }}
+          DEV_SSH_USER: ${{ secrets.DEV_SSH_USER }}
+          DEV_SSH_KEY: ${{ secrets.DEV_SSH_KEY }}
+          DEV_APP_DIR: ${{ secrets.DEV_APP_DIR }}
+        run: |
+          missing=""
+          for v in DEV_SSH_HOST DEV_SSH_USER DEV_SSH_KEY DEV_APP_DIR; do
+            if [ -z "${!v}" ]; then
+              missing="$missing $v"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing required dev secrets:$missing"
+            exit 1
+          fi
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -112,6 +130,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate staging deployment secrets
+        env:
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_APP_DIR: ${{ secrets.STAGING_APP_DIR }}
+        run: |
+          missing=""
+          for v in STAGING_SSH_HOST STAGING_SSH_USER STAGING_SSH_KEY STAGING_APP_DIR; do
+            if [ -z "${!v}" ]; then
+              missing="$missing $v"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing required staging secrets:$missing"
+            exit 1
+          fi
+
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -182,6 +218,24 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Validate production deployment secrets
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_APP_DIR: ${{ secrets.PROD_APP_DIR }}
+        run: |
+          missing=""
+          for v in PROD_SSH_HOST PROD_SSH_USER PROD_SSH_KEY PROD_APP_DIR; do
+            if [ -z "${!v}" ]; then
+              missing="$missing $v"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Missing required production secrets:$missing"
+            exit 1
+          fi
 
       - name: Setup SSH agent
         uses: webfactory/ssh-agent@v0.9.0

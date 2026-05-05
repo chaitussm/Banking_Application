@@ -118,6 +118,7 @@ This repository now includes two GitHub Actions workflows:
 		- `staging`
 		- `production`
 	- Uses SSH + rsync for real server deployment
+	- Fails fast with a clear error when required deployment secrets are missing
 
 ### Deployment Secrets
 
