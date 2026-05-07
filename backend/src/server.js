@@ -248,8 +248,8 @@ async function startServer() {
   await seedDatabase(db);
   store = createStore(db);
 
-  app.listen(port, () => {
-    console.log(`Banking API running on http://localhost:${port}`);
+  app.listen(port, "0.0.0.0", () => {
+    console.log(`Banking API running on http://0.0.0.0:${port}`);
   });
 }
 
