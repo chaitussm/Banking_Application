@@ -136,7 +136,7 @@ jobs:
       SMTP_SERVER: ${{ secrets.SMTP_SERVER || secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USERNAME: ${{ secrets.SMTP_USERNAME || secrets.SMTP_USER }}
-      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD || secrets.SMTP_PASS }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD || secrets.SMTP_PASS || secrets.GMAIL_APP_PASSWORD || secrets.MAIL_PASSWORD || secrets.EMAIL_PASSWORD }}
 
     steps:
       - name: Checkout code
@@ -176,6 +176,7 @@ jobs:
 
       - name: Send HTML report by email
         if: env.SMTP_TO != '' && env.SMTP_FROM != ''
+        continue-on-error: true
         env:
           REPORT_HTML_PATH: artifacts/reports/pipeline-report.html
           REPORT_SUBJECT: "NovaBank Dev Pipeline report — ${{ github.event_name }} @ ${{ github.ref_name }} (#${{ github.run_number }})"
