@@ -111,12 +111,12 @@ This repository now includes two GitHub Actions workflows:
 
 Set these repository secrets so the Dev Pipeline can send the HTML database report:
 
-- `SMTP_FROM`
-- `SMTP_TO`
-- `SMTP_SERVER`
+- `SMTP_FROM` (required)
+- `SMTP_TO` (required)
+- `SMTP_PASSWORD` (required for authenticated SMTP, for example a Gmail app password)
+- `SMTP_SERVER` / `SMTP_HOST` (optional; inferred from the `SMTP_FROM` domain, e.g. `smtp.gmail.com`)
 - `SMTP_PORT` (optional, default `587`)
-- `SMTP_USERNAME`
-- `SMTP_PASSWORD`
+- `SMTP_USERNAME` / `SMTP_USER` (optional; defaults to the `SMTP_FROM` email address)
 
 - `.github/workflows/deploy-pipeline.yml`
 	- Triggers after successful `Dev Pipeline` runs on `master`
