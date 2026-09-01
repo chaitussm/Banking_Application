@@ -36,10 +36,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -65,7 +65,7 @@ jobs:
           cp backend/package-lock.json artifacts/backend/package-lock.json
 
       - name: Upload backend artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-build
           path: artifacts/backend
@@ -89,10 +89,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -107,7 +107,7 @@ jobs:
         run: npm run build
 
       - name: Upload frontend build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-build
           path: frontend/dist
@@ -133,17 +133,17 @@ jobs:
     env:
       SMTP_TO: ${{ secrets.SMTP_TO }}
       SMTP_FROM: ${{ secrets.SMTP_FROM }}
-      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER || secrets.SMTP_HOST }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
-      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME || secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD || secrets.SMTP_PASS }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -156,7 +156,7 @@ jobs:
         run: node scripts/generate-pipeline-report.mjs
 
       - name: Upload HTML report artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pipeline-html-report
           path: artifacts/reports/pipeline-report.html
@@ -176,17 +176,7 @@ jobs:
 
       - name: Send HTML report by email
         if: env.SMTP_TO != '' && env.SMTP_FROM != ''
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ env.SMTP_SERVER }}
-          server_port: ${{ env.SMTP_PORT || 587 }}
-          username: ${{ env.SMTP_USERNAME }}
-          password: ${{ env.SMTP_PASSWORD }}
-          subject: "NovaBank Dev Pipeline report — ${{ github.event_name }} @ ${{ github.ref_name }} (#${{ github.run_number }})"
-          to: ${{ env.SMTP_TO }}
-          from: ${{ env.SMTP_FROM }}
-          html_body: file://artifacts/reports/pipeline-report.html
-          attachments: artifacts/reports/pipeline-report.html
-          convert_markdown: false
-          secure: true
-          ignore_cert: false
+        env:
+          REPORT_HTML_PATH: artifacts/reports/pipeline-report.html
+          REPORT_SUBJECT: "NovaBank Dev Pipeline report — ${{ github.event_name }} @ ${{ github.ref_name }} (#${{ github.run_number }})"
+        run: python3 .github/scripts/send-pipeline-report.py
