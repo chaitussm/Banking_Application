@@ -65,6 +65,16 @@ def main() -> int:
         return 1
 
     print(f"Using SMTP server {server}:{port}")
+
+    if not password:
+        print(
+            "Skipping email send: SMTP_PASSWORD is not set. "
+            "Gmail and other authenticated SMTP servers require a repository "
+            "secret named SMTP_PASSWORD (Gmail: App Password for the SMTP_FROM account). "
+            "The HTML report artifact was still published."
+        )
+        return 0
+
     html = html_path.read_text(encoding="utf-8")
 
     message = MIMEMultipart("mixed")
@@ -86,13 +96,7 @@ def main() -> int:
         smtp.ehlo()
         smtp.starttls(context=context)
         smtp.ehlo()
-        if password:
-            smtp.login(username, password)
-        else:
-            print(
-                "SMTP_PASSWORD is empty; attempting unauthenticated send. "
-                "Add SMTP_PASSWORD (for Gmail, use an app password) if this fails."
-            )
+        smtp.login(username, password)
         smtp.sendmail(from_email, recipients, message.as_string())
 
     print("HTML report email sent.")

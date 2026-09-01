@@ -113,7 +113,7 @@ Set these repository secrets so the Dev Pipeline can send the HTML database repo
 
 - `SMTP_FROM` (required)
 - `SMTP_TO` (required)
-- `SMTP_PASSWORD` (required for authenticated SMTP, for example a Gmail app password)
+- `SMTP_PASSWORD` (required to actually send mail; Gmail needs an App Password for the `SMTP_FROM` account). If this secret is missing, the pipeline still succeeds and publishes the HTML report artifact.
 - `SMTP_SERVER` / `SMTP_HOST` (optional; inferred from the `SMTP_FROM` domain, e.g. `smtp.gmail.com`)
 - `SMTP_PORT` (optional, default `587`)
 - `SMTP_USERNAME` / `SMTP_USER` (optional; defaults to the `SMTP_FROM` email address)
