@@ -100,9 +100,23 @@ This repository now includes two GitHub Actions workflows:
 	- Triggers on push to `master`
 	- Triggers on pull requests targeting `master`
 	- Runs daily at 10:00 PM IST (`30 16 * * *` UTC)
+	- Keeps existing `Backend Checks` and `Frontend Checks` jobs
 	- Publishes artifacts:
 		- `backend-build`
 		- `frontend-build`
+		- `pipeline-html-report` (SQLite schema, counts, users without passwords, accounts, transactions)
+	- Emails the HTML report using `SMTP_FROM` and `SMTP_TO`
+
+### Pipeline report email secrets
+
+Set these repository secrets so the Dev Pipeline can send the HTML database report:
+
+- `SMTP_FROM`
+- `SMTP_TO`
+- `SMTP_SERVER`
+- `SMTP_PORT` (optional, default `587`)
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
 
 - `.github/workflows/deploy-pipeline.yml`
 	- Triggers after successful `Dev Pipeline` runs on `master`
