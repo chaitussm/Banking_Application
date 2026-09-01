@@ -99,7 +99,7 @@ This repository now includes two GitHub Actions workflows:
 - `.github/workflows/dev-pipeline.yml`
 	- Triggers on push to `master`
 	- Triggers on pull requests targeting `master`
-	- Runs daily at 10:00 PM IST (`30 16 * * *` UTC)
+	- Runs daily at 10:00 PM IST (`30 16 * * *` UTC) and 12:00 AM IST (`30 18 * * *` UTC)
 	- Keeps existing `Backend Checks` and `Frontend Checks` jobs
 	- Publishes artifacts:
 		- `backend-build`
