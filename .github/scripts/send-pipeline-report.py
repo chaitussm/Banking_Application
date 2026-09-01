@@ -86,13 +86,14 @@ def main() -> int:
         smtp.ehlo()
         smtp.starttls(context=context)
         smtp.ehlo()
-        if password:
-            smtp.login(username, password)
-        else:
+        if not password:
             print(
-                "SMTP_PASSWORD is empty; attempting unauthenticated send. "
-                "Add SMTP_PASSWORD (for Gmail, use an app password) if this fails."
+                "Gmail/authenticated SMTP requires SMTP_PASSWORD. "
+                "Add a repository secret named SMTP_PASSWORD "
+                "(Gmail: App Password for the SMTP_FROM account)."
             )
+            return 1
+        smtp.login(username, password)
         smtp.sendmail(from_email, recipients, message.as_string())
 
     print("HTML report email sent.")
