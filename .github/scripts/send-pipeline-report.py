@@ -32,6 +32,7 @@ def infer_server(from_email: str, explicit_server: str) -> str:
         "hotmail.com": "smtp.office365.com",
         "live.com": "smtp.office365.com",
         "msn.com": "smtp.office365.com",
+        "office365.com": "smtp.office365.com",
         "yahoo.com": "smtp.mail.yahoo.com",
         "ymail.com": "smtp.mail.yahoo.com",
     }
@@ -82,9 +83,7 @@ def main() -> int:
     recipients = [part.strip() for part in to_raw.split(",") if part.strip()]
     context = ssl.create_default_context()
 
-    with smtplib.SMTP(server, port, timeout=45) as smtp:
-        smtp.ehlo()
-        smtp.starttls(context=context)
+    def authenticate_and_send(smtp: smtplib.SMTP) -> None:
         smtp.ehlo()
         if password:
             smtp.login(username, password)
@@ -94,6 +93,15 @@ def main() -> int:
                 "Add SMTP_PASSWORD (for Gmail, use an app password) if this fails."
             )
         smtp.sendmail(from_email, recipients, message.as_string())
+
+    if port == 465:
+        with smtplib.SMTP_SSL(server, port, timeout=45, context=context) as smtp:
+            authenticate_and_send(smtp)
+    else:
+        with smtplib.SMTP(server, port, timeout=45) as smtp:
+            smtp.ehlo()
+            smtp.starttls(context=context)
+            authenticate_and_send(smtp)
 
     print("HTML report email sent.")
     return 0

@@ -105,7 +105,7 @@ This repository now includes two GitHub Actions workflows:
 		- `backend-build`
 		- `frontend-build`
 		- `pipeline-html-report` (SQLite schema, counts, users without passwords, accounts, transactions)
-	- Emails the HTML report using `SMTP_FROM` and `SMTP_TO`
+	- Emails the HTML report using `SMTP_FROM`, `SMTP_TO`, `SMTP_PASSWORD`, and `SMTP_PORT` (587)
 
 ### Pipeline report email secrets
 
@@ -113,10 +113,12 @@ Set these repository secrets so the Dev Pipeline can send the HTML database repo
 
 - `SMTP_FROM` (required)
 - `SMTP_TO` (required)
-- `SMTP_PASSWORD` (required for authenticated SMTP, for example a Gmail app password)
-- `SMTP_SERVER` / `SMTP_HOST` (optional; inferred from the `SMTP_FROM` domain, e.g. `smtp.gmail.com`)
-- `SMTP_PORT` (optional, default `587`)
+- `SMTP_PASSWORD` (required for authenticated SMTP, for example a Gmail app password or Outlook account password)
+- `SMTP_PORT` (optional; add this secret with value `587` to match Java-Project STARTTLS. If the secret is missing, the workflow still uses `587`)
+- `SMTP_SERVER` / `SMTP_HOST` (optional; inferred from the `SMTP_FROM` domain, e.g. `smtp.gmail.com` or `smtp.office365.com` for Outlook)
 - `SMTP_USERNAME` / `SMTP_USER` (optional; defaults to the `SMTP_FROM` email address)
+
+`SMTP_FROM`, `SMTP_TO`, and `SMTP_PASSWORD` are enough. `SMTP_PORT` can be set to `587` (as in Java-Project); the workflow also defaults to `587` if that secret is absent.
 
 - `.github/workflows/deploy-pipeline.yml`
 	- Triggers after successful `Dev Pipeline` runs on `master`

@@ -60,37 +60,70 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function statusClass(status) {
-  const normalized = String(status || "unknown").toLowerCase();
-  if (normalized === "success") {
-    return "ok";
-  }
-  if (normalized === "failure" || normalized === "cancelled") {
-    return "bad";
-  }
-  return "warn";
+function headerLabel(header) {
+  return String(header).replace(/_/g, " ");
 }
 
-function tableHtml(headers, rows) {
+function tableHtml(headers, rows, options = {}) {
   if (!rows.length) {
-    return `<p class="empty">No rows</p>`;
+    return `<p style="margin:0 0 16px;color:#5b6368;font-style:italic;">No rows</p>`;
   }
 
-  const head = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
-  const body = rows
+  const emphasize = options.emphasize || {};
+  const head = headers
     .map(
-      (row) =>
-        `<tr>${headers
-          .map((header) => `<td>${escapeHtml(row[header] ?? "")}</td>`)
-          .join("")}</tr>`
+      (header) =>
+        `<th style="padding:10px 12px;background:#146356;color:#fffdf8;font-size:12px;letter-spacing:.04em;text-transform:uppercase;text-align:left;font-weight:700;">${escapeHtml(headerLabel(header))}</th>`
     )
     .join("");
+  const body = rows
+    .map((row, index) => {
+      const bg = index % 2 === 0 ? "#fffdf8" : "#f4f2ec";
+      const cells = headers
+        .map((header) => {
+          const raw = row[header] ?? "";
+          const extra = emphasize[header] ? "font-weight:700;color:#146356;" : "";
+          return `<td style="padding:10px 12px;border-bottom:1px solid #ddd4c3;font-size:13px;vertical-align:top;${extra}">${escapeHtml(raw)}</td>`;
+        })
+        .join("");
+      return `<tr style="background:${bg};">${cells}</tr>`;
+    })
+    .join("");
 
-  return `<table width="100%"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 18px;border:1px solid #ddd4c3;border-radius:10px;overflow:hidden;"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-function metricCard(label, value) {
-  return `<td class="metric" style="background:#f8fafc;border-radius:12px;padding:12px 14px;width:25%;"><div style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.04em;">${escapeHtml(label)}</div><div style="font-size:18px;font-weight:700;margin-top:4px;word-break:break-word;">${escapeHtml(value)}</div></td>`;
+function metricCard(label, value, hint = "") {
+  return `<td style="width:25%;padding:0 6px 12px;">
+    <div style="background:#fffdf8;border:1px solid #ddd4c3;border-left:4px solid #146356;border-radius:12px;padding:14px 16px;">
+      <div style="color:#5b6368;font-size:11px;text-transform:uppercase;letter-spacing:.08em;">${escapeHtml(label)}</div>
+      <div style="font-size:20px;font-weight:700;margin-top:6px;word-break:break-word;color:#1e2428;">${escapeHtml(value)}</div>
+      ${hint ? `<div style="color:#5b6368;font-size:11px;margin-top:4px;">${escapeHtml(hint)}</div>` : ""}
+    </div>
+  </td>`;
+}
+
+function statusBadge(status) {
+  const normalized = String(status || "unknown").toLowerCase();
+  let background = "#c1723f";
+  let label = status;
+  if (normalized === "success") {
+    background = "#146356";
+  } else if (normalized === "failure" || normalized === "cancelled") {
+    background = "#b03d2f";
+  }
+  return `<span style="display:inline-block;background:${background};color:#fff;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">${escapeHtml(label)}</span>`;
+}
+
+function sectionTitle(title, subtitle = "") {
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 12px;">
+    <tr>
+      <td style="border-bottom:2px solid #146356;padding:0 0 8px;">
+        <h2 style="margin:0;font-size:20px;color:#1e2428;">${escapeHtml(title)}</h2>
+        ${subtitle ? `<p style="margin:6px 0 0;color:#5b6368;font-size:13px;">${escapeHtml(subtitle)}</p>` : ""}
+      </td>
+    </tr>
+  </table>`;
 }
 
 function collectDatabase() {
@@ -121,6 +154,7 @@ function collectDatabase() {
 
     return {
       name: table.name,
+      sql: table.sql || "",
       rowCount,
       columns,
       foreignKeys
@@ -170,6 +204,8 @@ function renderHtml({ pipeline, database, generatedAt }) {
       : backendStatus === "failure" || frontendStatus === "failure"
         ? "failure"
         : "mixed";
+  const headerBg =
+    overall === "success" ? "#146356" : overall === "failure" ? "#b03d2f" : "#c1723f";
 
   const schemaSections = database.tableDetails
     .map((table) => {
@@ -179,15 +215,40 @@ function renderHtml({ pipeline, database, generatedAt }) {
       );
       const fks = table.foreignKeys.length
         ? tableHtml(["from", "table", "to", "on_delete", "on_update"], table.foreignKeys)
-        : `<p class="empty">No foreign keys</p>`;
+        : `<p style="margin:0 0 16px;color:#5b6368;font-style:italic;">No foreign keys</p>`;
+      const ddl = table.sql
+        ? `<pre style="margin:0 0 16px;padding:12px 14px;background:#1e2428;color:#f4f2ec;border-radius:10px;font-size:12px;overflow:auto;white-space:pre-wrap;">${escapeHtml(table.sql)}</pre>`
+        : "";
       return `
-        <h3 style="margin:20px 0 8px;">${escapeHtml(table.name)} <span class="pill">${table.rowCount} rows</span></h3>
+        <h3 style="margin:18px 0 10px;color:#1e2428;">
+          ${escapeHtml(table.name)}
+          <span style="display:inline-block;background:#d4efe6;color:#146356;border-radius:999px;padding:2px 10px;font-size:12px;margin-left:8px;">${table.rowCount} rows</span>
+        </h3>
+        ${ddl}
         ${columns}
-        <p class="subhead">Foreign keys</p>
+        <p style="color:#5b6368;font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin:0 0 8px;">Foreign keys</p>
         ${fks}
       `;
     })
     .join("");
+
+  const jobRows = [
+    {
+      job: "Backend Checks",
+      status: backendStatus,
+      purpose: "Install, syntax validation, backend-build artifact"
+    },
+    {
+      job: "Frontend Checks",
+      status: frontendStatus,
+      purpose: "Install, production build, frontend-build artifact"
+    },
+    {
+      job: "Pipeline HTML Report",
+      status: "generated",
+      purpose: "SQLite HTML report artifact and email"
+    }
+  ];
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -195,73 +256,50 @@ function renderHtml({ pipeline, database, generatedAt }) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NovaBank Dev Pipeline Report</title>
-  <style>
-    table { border-collapse: collapse; width: 100%; margin: 0 0 16px; }
-    th, td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 13px; vertical-align: top; }
-    th { background: #f8fafc; color: #334155; }
-    .ok { color:#047857;font-weight:700; }
-    .bad { color:#b91c1c;font-weight:700; }
-    .warn { color:#b45309;font-weight:700; }
-    .pill { display:inline-block;background:#ecfeff;color:#0f766e;border-radius:999px;padding:2px 8px;font-size:12px;margin-left:8px; }
-    .empty { color:#64748b;font-style:italic; }
-    .subhead { color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em; }
-    code { background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:12px; }
-  </style>
 </head>
-<body style="margin:0;padding:0;background:#0f172a;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:24px 12px;">
+<body style="margin:0;padding:0;background:#1e2428;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1e2428;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#1e2428;padding:28px 12px;">
     <tr>
       <td align="center">
-        <table width="880" cellpadding="0" cellspacing="0" style="max-width:880px;background:#ffffff;border-radius:16px;overflow:hidden;">
+        <table width="900" cellpadding="0" cellspacing="0" style="max-width:900px;background:#f4f2ec;border-radius:18px;overflow:hidden;">
           <tr>
-            <td style="background:#0f766e;padding:28px 32px;color:#fff;">
-              <div style="font-size:13px;letter-spacing:.12em;text-transform:uppercase;opacity:.85;">NovaBank CI</div>
-              <h1 style="margin:8px 0 4px;font-size:28px;">Dev Pipeline Report</h1>
-              <div style="opacity:.9;">${escapeHtml(generatedAt)} · overall status: <strong>${escapeHtml(overall)}</strong></div>
+            <td style="background:${headerBg};padding:32px 36px;color:#fff;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <div style="font-size:12px;letter-spacing:.18em;text-transform:uppercase;opacity:.9;">NovaBank CI</div>
+                    <h1 style="margin:8px 0 10px;font-size:30px;">Dev Pipeline Report</h1>
+                    <div style="opacity:.95;font-size:14px;">${escapeHtml(generatedAt)}</div>
+                  </td>
+                  <td align="right" style="vertical-align:top;">
+                    ${statusBadge(overall)}
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:24px 32px;">
-              <table width="100%" style="border-collapse:separate;border-spacing:12px 0;margin-bottom:8px;">
+            <td style="padding:28px 30px 8px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   ${metricCard("Event", pipeline.eventName)}
                   ${metricCard("Branch", pipeline.refName)}
-                  ${metricCard("Backend", backendStatus)}
-                  ${metricCard("Frontend", frontendStatus)}
+                  ${metricCard("Actor", pipeline.actor)}
+                  ${metricCard("Run", `#${pipeline.runNumber}`, `attempt ${pipeline.runAttempt}`)}
                 </tr>
               </table>
-              <p style="color:#475569;margin:8px 0 20px;">
-                Repository <strong>${escapeHtml(pipeline.repository)}</strong> ·
-                SHA <code>${escapeHtml(pipeline.sha)}</code> ·
-                Run <a href="${escapeHtml(pipeline.runUrl)}">#${escapeHtml(pipeline.runNumber)}</a>
+              <p style="color:#5b6368;margin:4px 6px 20px;font-size:14px;">
+                Repository <strong style="color:#1e2428;">${escapeHtml(pipeline.repository)}</strong> ·
+                SHA <span style="background:#fffdf8;border:1px solid #ddd4c3;border-radius:6px;padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:12px;">${escapeHtml(pipeline.sha)}</span> ·
+                Workflow <strong>${escapeHtml(pipeline.workflow)}</strong> ·
+                <a href="${escapeHtml(pipeline.runUrl)}" style="color:#146356;font-weight:700;">Open GitHub run</a>
               </p>
 
-              <h2 style="margin:0 0 12px;font-size:20px;">Pipeline jobs</h2>
-              <table width="100%">
-                <thead>
-                  <tr>
-                    <th>Job</th>
-                    <th>Status</th>
-                    <th>Purpose</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Backend Checks</td>
-                    <td class="${statusClass(backendStatus)}">${escapeHtml(backendStatus)}</td>
-                    <td>Install, syntax validation, backend-build artifact</td>
-                  </tr>
-                  <tr>
-                    <td>Frontend Checks</td>
-                    <td class="${statusClass(frontendStatus)}">${escapeHtml(frontendStatus)}</td>
-                    <td>Install, production build, frontend-build artifact</td>
-                  </tr>
-                </tbody>
-              </table>
+              ${sectionTitle("Pipeline jobs", "Existing Backend Checks and Frontend Checks were not changed.")}
+              ${tableHtml(["job", "status", "purpose"], jobRows, { emphasize: { status: true } })}
 
-              <h2 style="margin:24px 0 12px;font-size:20px;">SQLite database</h2>
-              <p style="color:#475569;">Engine: SQLite · File: <code>${escapeHtml(database.dbPath)}</code> · Size: ${escapeHtml(database.fileSize)}</p>
-              <table width="100%" style="border-collapse:separate;border-spacing:12px 0;margin:8px 0 20px;">
+              ${sectionTitle("SQLite database", `${database.dbPath} · ${database.fileSize}`)}
+              <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   ${metricCard("Tables", database.tableDetails.length)}
                   ${metricCard("Users", database.users.length)}
@@ -269,32 +307,54 @@ function renderHtml({ pipeline, database, generatedAt }) {
                   ${metricCard("Transactions", database.transactions.length)}
                 </tr>
               </table>
-              <p style="color:#475569;">PRAGMA foreign_keys=${escapeHtml(database.pragmas.foreign_keys)} · journal_mode=${escapeHtml(database.pragmas.journal_mode)} · page_size=${escapeHtml(database.pragmas.page_size)} · page_count=${escapeHtml(database.pragmas.page_count)} · user_version=${escapeHtml(database.pragmas.user_version)}</p>
-              <p style="color:#475569;">Refresh tokens: ${escapeHtml(database.refreshTokenStats.total || 0)} total · ${escapeHtml(database.refreshTokenStats.active || 0)} active · ${escapeHtml(database.refreshTokenStats.revoked || 0)} revoked. Token values are omitted from this report.</p>
+              ${tableHtml(
+                ["pragma", "value"],
+                [
+                  { pragma: "foreign_keys", value: database.pragmas.foreign_keys },
+                  { pragma: "journal_mode", value: database.pragmas.journal_mode },
+                  { pragma: "page_size", value: database.pragmas.page_size },
+                  { pragma: "page_count", value: database.pragmas.page_count },
+                  { pragma: "user_version", value: database.pragmas.user_version }
+                ]
+              )}
+              <p style="color:#5b6368;margin:0 6px 8px;font-size:13px;">
+                Refresh tokens: <strong>${escapeHtml(database.refreshTokenStats.total || 0)}</strong> total ·
+                <strong>${escapeHtml(database.refreshTokenStats.active || 0)}</strong> active ·
+                <strong>${escapeHtml(database.refreshTokenStats.revoked || 0)}</strong> revoked.
+                Token values are omitted from this report.
+              </p>
 
-              <h2 style="margin:24px 0 12px;font-size:20px;">Schema</h2>
+              ${sectionTitle("Schema", "CREATE TABLE statements, columns, and foreign keys.")}
               ${schemaSections}
 
-              <h2 style="margin:8px 0 12px;font-size:20px;">Indexes</h2>
+              ${sectionTitle("Indexes")}
               ${tableHtml(["name", "table", "sql"], database.indexes)}
 
-              <h2 style="margin:24px 0 12px;font-size:20px;">Users</h2>
-              <p class="empty">Password hashes are excluded.</p>
+              ${sectionTitle("Users", "Password hashes are excluded.")}
               ${tableHtml(
                 ["id", "full_name", "email", "role", "failed_login_attempts", "locked_until", "created_at"],
-                database.users
+                database.users,
+                { emphasize: { role: true } }
               )}
 
-              <h2 style="margin:24px 0 12px;font-size:20px;">Accounts</h2>
-              ${tableHtml(["id", "user_id", "type", "balance", "currency", "created_at"], database.accounts)}
+              ${sectionTitle("Accounts")}
+              ${tableHtml(
+                ["id", "user_id", "type", "balance", "currency", "created_at"],
+                database.accounts,
+                { emphasize: { balance: true } }
+              )}
 
-              <h2 style="margin:24px 0 12px;font-size:20px;">Transactions</h2>
-              ${tableHtml(["id", "account_id", "kind", "amount", "note", "timestamp"], database.transactions)}
+              ${sectionTitle("Transactions")}
+              ${tableHtml(
+                ["id", "account_id", "kind", "amount", "note", "timestamp"],
+                database.transactions,
+                { emphasize: { amount: true } }
+              )}
             </td>
           </tr>
           <tr>
-            <td style="padding:16px 32px 28px;color:#64748b;font-size:12px;border-top:1px solid #e2e8f0;">
-              Generated by the NovaBank Dev Pipeline report job. Existing backend and frontend checks were not changed.
+            <td style="padding:18px 36px 28px;color:#5b6368;font-size:12px;border-top:1px solid #ddd4c3;background:#fffdf8;">
+              Generated by the NovaBank Dev Pipeline report job. Email uses SMTP_FROM, SMTP_TO, SMTP_PASSWORD, and SMTP_PORT 587.
             </td>
           </tr>
         </table>
@@ -317,6 +377,9 @@ function main() {
     repository: process.env.GITHUB_REPOSITORY || "local/workspace",
     sha: (process.env.GITHUB_SHA || "local").slice(0, 12),
     runNumber: process.env.GITHUB_RUN_NUMBER || "n/a",
+    runAttempt: process.env.PIPELINE_RUN_ATTEMPT || process.env.GITHUB_RUN_ATTEMPT || "1",
+    actor: process.env.PIPELINE_ACTOR || process.env.GITHUB_ACTOR || "local",
+    workflow: process.env.PIPELINE_WORKFLOW || process.env.GITHUB_WORKFLOW || "Dev Pipeline",
     runUrl:
       process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
         ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`

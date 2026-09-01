@@ -77,9 +77,11 @@ jobs:
           {
             echo "## Backend Checks"
             echo ""
-            echo "- Result: \`${{ job.status }}\`"
-            echo "- Artifact: \`backend-build\`"
-            echo "- Validated: \`src/server.js\`, \`src/data/store.js\`"
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Result | \`${{ job.status }}\` |"
+            echo "| Artifact | \`backend-build\` |"
+            echo "| Validated | \`src/server.js\`, \`src/data/store.js\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   frontend-checks:
@@ -119,9 +121,11 @@ jobs:
           {
             echo "## Frontend Checks"
             echo ""
-            echo "- Result: \`${{ job.status }}\`"
-            echo "- Artifact: \`frontend-build\`"
-            echo "- Command: \`npm run build\`"
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Result | \`${{ job.status }}\` |"
+            echo "| Artifact | \`frontend-build\` |"
+            echo "| Command | \`npm run build\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   pipeline-report:
@@ -133,10 +137,12 @@ jobs:
     env:
       SMTP_TO: ${{ secrets.SMTP_TO }}
       SMTP_FROM: ${{ secrets.SMTP_FROM }}
-      SMTP_SERVER: ${{ secrets.SMTP_SERVER || secrets.SMTP_HOST }}
-      SMTP_PORT: ${{ secrets.SMTP_PORT }}
-      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME || secrets.SMTP_USER }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD || secrets.SMTP_PASS }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER || secrets.SMTP_HOST }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME || secrets.SMTP_USER }}
+      # Java-Project uses secrets.SMTP_PORT (typically 587 STARTTLS).
+      # This repo can add the same secret; if it is missing, default to 587.
+      SMTP_PORT: ${{ secrets.SMTP_PORT || '587' }}
 
     steps:
       - name: Checkout code
@@ -153,6 +159,9 @@ jobs:
           BACKEND_JOB_RESULT: ${{ needs.backend-checks.result }}
           FRONTEND_JOB_RESULT: ${{ needs.frontend-checks.result }}
           REPORT_OUTPUT_DIR: ${{ github.workspace }}/artifacts/reports
+          PIPELINE_ACTOR: ${{ github.actor }}
+          PIPELINE_WORKFLOW: ${{ github.workflow }}
+          PIPELINE_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: node scripts/generate-pipeline-report.mjs
 
       - name: Upload HTML report artifact
@@ -167,11 +176,13 @@ jobs:
           {
             echo "## Pipeline HTML report"
             echo ""
-            echo "A styled HTML report with SQLite schema, row counts, users (no passwords), accounts, and transactions is attached as artifact \`pipeline-html-report\`."
+            echo "A styled HTML report with SQLite schema, row counts, users (no passwords), accounts, and transactions is attached as artifact \`pipeline-html-report\` and emailed when \`SMTP_FROM\` + \`SMTP_TO\` are set."
             echo ""
-            echo "- Backend Checks: \`${{ needs.backend-checks.result }}\`"
-            echo "- Frontend Checks: \`${{ needs.frontend-checks.result }}\`"
-            echo "- Run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            echo "| Job | Result |"
+            echo "| --- | --- |"
+            echo "| Backend Checks | \`${{ needs.backend-checks.result }}\` |"
+            echo "| Frontend Checks | \`${{ needs.frontend-checks.result }}\` |"
+            echo "| Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Send HTML report by email
