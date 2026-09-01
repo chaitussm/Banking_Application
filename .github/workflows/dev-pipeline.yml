@@ -130,6 +130,13 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      SMTP_TO: ${{ secrets.SMTP_TO }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
 
     steps:
       - name: Checkout code
@@ -168,16 +175,16 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Send HTML report by email
-        if: ${{ secrets.SMTP_TO != '' && secrets.SMTP_FROM != '' }}
+        if: env.SMTP_TO != '' && env.SMTP_FROM != ''
         uses: dawidd6/action-send-mail@v3
         with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT || 587 }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
+          server_address: ${{ env.SMTP_SERVER }}
+          server_port: ${{ env.SMTP_PORT || 587 }}
+          username: ${{ env.SMTP_USERNAME }}
+          password: ${{ env.SMTP_PASSWORD }}
           subject: "NovaBank Dev Pipeline report — ${{ github.event_name }} @ ${{ github.ref_name }} (#${{ github.run_number }})"
-          to: ${{ secrets.SMTP_TO }}
-          from: ${{ secrets.SMTP_FROM }}
+          to: ${{ env.SMTP_TO }}
+          from: ${{ env.SMTP_FROM }}
           html_body: file://artifacts/reports/pipeline-report.html
           attachments: artifacts/reports/pipeline-report.html
           convert_markdown: false
