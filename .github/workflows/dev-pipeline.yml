@@ -14,10 +14,25 @@ on:
 
 run-name: "Dev Pipeline - ${{ github.event_name }} @ ${{ github.ref_name }}"
 
+concurrency:
+  group: dev-pipeline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   backend-checks:
     name: Backend Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -26,7 +41,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -56,9 +71,21 @@ jobs:
           path: artifacts/backend
           if-no-files-found: error
 
+      - name: Backend job summary
+        if: always()
+        run: |
+          {
+            echo "## Backend Checks"
+            echo ""
+            echo "- Result: \`${{ job.status }}\`"
+            echo "- Artifact: \`backend-build\`"
+            echo "- Validated: \`src/server.js\`, \`src/data/store.js\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   frontend-checks:
     name: Frontend Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -67,7 +94,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -85,3 +112,74 @@ jobs:
           name: frontend-build
           path: frontend/dist
           if-no-files-found: error
+
+      - name: Frontend job summary
+        if: always()
+        run: |
+          {
+            echo "## Frontend Checks"
+            echo ""
+            echo "- Result: \`${{ job.status }}\`"
+            echo "- Artifact: \`frontend-build\`"
+            echo "- Command: \`npm run build\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  pipeline-report:
+    name: Pipeline HTML Report
+    needs: [backend-checks, frontend-checks]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Generate HTML database report
+        working-directory: backend
+        env:
+          BACKEND_JOB_RESULT: ${{ needs.backend-checks.result }}
+          FRONTEND_JOB_RESULT: ${{ needs.frontend-checks.result }}
+          REPORT_OUTPUT_DIR: ${{ github.workspace }}/artifacts/reports
+        run: node scripts/generate-pipeline-report.mjs
+
+      - name: Upload HTML report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-html-report
+          path: artifacts/reports/pipeline-report.html
+          if-no-files-found: error
+
+      - name: Publish report to job summary
+        run: |
+          {
+            echo "## Pipeline HTML report"
+            echo ""
+            echo "A styled HTML report with SQLite schema, row counts, users (no passwords), accounts, and transactions is attached as artifact \`pipeline-html-report\`."
+            echo ""
+            echo "- Backend Checks: \`${{ needs.backend-checks.result }}\`"
+            echo "- Frontend Checks: \`${{ needs.frontend-checks.result }}\`"
+            echo "- Run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Send HTML report by email
+        if: ${{ secrets.SMTP_TO != '' && secrets.SMTP_FROM != '' }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT || 587 }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "NovaBank Dev Pipeline report — ${{ github.event_name }} @ ${{ github.ref_name }} (#${{ github.run_number }})"
+          to: ${{ secrets.SMTP_TO }}
+          from: ${{ secrets.SMTP_FROM }}
+          html_body: file://artifacts/reports/pipeline-report.html
+          attachments: artifacts/reports/pipeline-report.html
+          convert_markdown: false
+          secure: true
+          ignore_cert: false
