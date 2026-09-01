@@ -10,6 +10,8 @@ on:
   schedule:
     # 10:00 PM IST = 4:30 PM UTC
     - cron: "30 16 * * *"
+    # 12:00 AM IST = 6:30 PM UTC
+    - cron: "30 18 * * *"
   workflow_dispatch:
 
 run-name: "Dev Pipeline - ${{ github.event_name }} @ ${{ github.ref_name }}"
